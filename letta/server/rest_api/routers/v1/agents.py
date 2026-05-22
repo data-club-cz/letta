@@ -1639,14 +1639,17 @@ async def modify_message(
     grounds that messages may be shared across conversations via
     forking. We re-enable the endpoint because callers (e.g. ai-hub's
     recency-bias wrap rewriter) need per-message mutation; the
-    underlying `message_manager.update_message_by_letta_message`
-    service method is already used by the equivalent groups route
-    (`groups.py:modify_group_message`), so no service-layer change is
-    needed. Callers fork at their own risk if the message is shared.
+    underlying `message_manager.update_message_by_letta_message_async`
+    service method exists in 0.16.8 (note the `_async` suffix — the
+    equivalent groups handler at `groups.py:modify_group_message` calls
+    `update_message_by_letta_message` without the suffix, which doesn't
+    exist on the manager in this version and 500s; we use the real
+    method name here). Callers fork at their own risk if the message
+    is shared.
     """
     # TODO: support modifying tool calls/returns
     actor = await server.user_manager.get_actor_or_default_async(actor_id=headers.actor_id)
-    return await server.message_manager.update_message_by_letta_message(
+    return await server.message_manager.update_message_by_letta_message_async(
         message_id=message_id, letta_message_update=request, actor=actor
     )
 
