@@ -21,6 +21,15 @@ on:
         description: "Specific upstream tag to merge (default: all unmerged release tags)"
         required: false
         type: string
+  # Self-registration trigger. GitHub doesn't register schedule-only
+  # workflows until their first fire — and `workflow_dispatch` can't be
+  # called against an unregistered workflow. Triggering on changes to
+  # this file itself makes the workflow appear in the Actions UI on the
+  # first push that touches it; it's effectively a no-op for normal
+  # development since the file changes rarely.
+  push:
+    paths:
+      - .github/workflows/sync-upstream-release.yml
 
 permissions:
   contents: write
