@@ -54,10 +54,13 @@ jobs:
       - name: Add upstream remote
         run: |
           git remote add upstream https://github.com/letta-ai/letta.git
-          # Letta uses bare-semver tags (no `v` prefix). Mirror them
-          # under `upstream-*` locally so we don't clobber our own tag
-          # namespace if we ever cut releases.
-          git fetch upstream --tags --no-tags '+refs/tags/[0-9]*:refs/tags/upstream-[0-9]*'
+          # Letta uses bare-semver tags (no `v` prefix). Mirror every
+          # upstream tag under `upstream-*` locally so we don't clobber
+          # our own tag namespace if we ever cut releases. The next
+          # step filters down to semver-shaped tag names. (Refspecs
+          # don't support character classes — `[0-9]*` would be parsed
+          # literally and fail — so we fetch all tags here.)
+          git fetch upstream --tags --no-tags '+refs/tags/*:refs/tags/upstream-*'
 
       - name: Determine tags to merge
         id: tags
