@@ -1624,7 +1624,7 @@ async def list_messages(
     )
 
 
-@router.patch("/{agent_id}/messages/{message_id}", response_model=LettaMessageUnion, operation_id="modify_message", deprecated=True)
+@router.patch("/{agent_id}/messages/{message_id}", response_model=LettaMessageUnion, operation_id="modify_message")
 async def modify_message(
     agent_id: AgentId,  # backwards compatible. Consider removing for v1
     message_id: MessageId,
@@ -1635,13 +1635,41 @@ async def modify_message(
     """
     Update the details of a message associated with an agent.
 
-    **Deprecated**: Messages are now considered immutable since they can be shared across
-    multiple conversations via forking. This endpoint will be removed in a future version.
+    **data-club fork patch.** Upstream 0.16.8 returns 405 here on the
+    grounds that messages may be shared across conversations via
+    forking. We re-enable the endpoint because callers (e.g. ai-hub's
+    recency-bias wrap rewriter) need per-message mutation; the
+    underlying `message_manager.update_message_by_letta_message`
+    service method is already used by the equivalent groups route
+    (`groups.py:modify_group_message`), so no service-layer change is
+    needed. Callers fork at their own risk if the message is shared.
     """
-    raise HTTPException(
-        status_code=status.HTTP_405_METHOD_NOT_ALLOWED,
-        detail="Message editing is no longer supported. Messages are immutable as they may be shared across multiple conversations via forking.",
+    # TODO: support modifying tool calls/returns
+    actor = await server.user_manager.get_actor_or_default_async(actor_id=headers.actor_id)
+    return await server.message_manager.update_message_by_letta_message(
+        message_id=message_id, letta_message_update=request, actor=actor
     )
+
+
+@router.delete("/{agent_id}/messages/{message_id}", status_code=status.HTTP_204_NO_CONTENT, operation_id="delete_message")
+async def delete_message(
+    agent_id: AgentId,  # accepted for symmetry with PATCH; not used (message lookup is by id)
+    message_id: MessageId,
+    server: "SyncServer" = Depends(get_letta_server),
+    headers: HeaderParams = Depends(get_headers),
+):
+    """
+    Delete a message associated with an agent.
+
+    **data-club fork patch.** Upstream 0.16.8 has no per-message DELETE
+    route, but `message_manager.delete_message_by_id_async` already
+    implements the operation (with Turbopuffer sync). Exposed here so
+    ai-hub can strip stale recency-bias wraps from past user messages
+    on each turn. Returns 204 on success.
+    """
+    actor = await server.user_manager.get_actor_or_default_async(actor_id=headers.actor_id)
+    await server.message_manager.delete_message_by_id_async(message_id=message_id, actor=actor)
+    return None
 
 
 # noinspection PyInconsistentReturns
